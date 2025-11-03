@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="./styles.css">
+    <title>Focussed</title>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Focussed</h1>
+      <div id="lockIn-section">
+        <label id="lockIn-label" for="hour-picker">Lock in until</label>
+        <div>
+          <select name="hour-picker" id="hour-picker"></select>
+          <select name="minutes-picker" id="minutes-picker">
+            <option value="mm" selected>mm</option>
+            <option value="0">00</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="45">45</option>
+          </select>
+        </div>
+        <button id="lockIn-btn" disabled>Lock in</button>
+      </div>
+      <div id="urls-section">
+        <h2 id="urls-title">Urls to block</h2>
+        <div id="addNewUrl-section">
+            <input name="addNewUrl-input" type="text" name="addNewUrl" id="newUrl-input" placeholder="nike.com"/>
+            <button id="newUrl-button">Add</button>
+        </div>
+        <table id="blockedUrls-table">
+        </table>
+      </div>
+      <div id="supportMe-section">
+        <p>You can support the work <a target="_blank" href="https://buymeacoffee.com/juelsito">here</a>! ❤️</p>
+      </div>
+    </div>
+    <script type="module" src="popup.js" defer></script>
+  </body>
+</html>
