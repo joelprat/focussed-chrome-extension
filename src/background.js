@@ -2,6 +2,10 @@
 
 let blockedUrls = [];
 
+/**
+ * Schedules the unlock timer based on the stored unlock time.
+ * If the selected time has already passed today, schedule it for the next day.
+ */
 const programUnlockTimer = () => {
   chrome.storage.local.get("unlockTime", ({ unlockTime }) => {
     if (!unlockTime) return;
@@ -13,10 +17,22 @@ const programUnlockTimer = () => {
     target.setSeconds(0);
     target.setMilliseconds(0);
 
+    /**
+     * Assuming that if we get to this point and the target hour is smaller
+     * than now, means it's for next day. (We are checking these conditions in setup.js)
+     */
+    if (target <= now) {
+      target.setDate(target.getDate() + 1);
+    }
+
     const timeToWait = target.getTime() - now.getTime();
-    if (timeToWait <= 0) return;
+    if (timeToWait <= 0) {
+      console.warn("[LockIn] Unblock time invalid or passed.");
+      return;
+    }
 
     chrome.alarms.create("unlockAlarm", { when: Date.now() + timeToWait });
+    chrome.storage.local.set({ unlockTimestamp: target.getTime() });
 
     console.log(
       `[LockIn] Webs bloqueadas hasta ${target.toLocaleTimeString()} (${Math.round(
@@ -26,6 +42,9 @@ const programUnlockTimer = () => {
   });
 };
 
+/**
+ * Removes all active blocking rules and notifies the user.
+ */
 const clearBlockedRules = () => {
   chrome.declarativeNetRequest.getDynamicRules((oldRules) => {
     const oldIds = oldRules.map((r) => r.id);
@@ -33,7 +52,7 @@ const clearBlockedRules = () => {
       chrome.declarativeNetRequest.updateDynamicRules({
         removeRuleIds: oldIds,
       });
-      console.log("[LockIn] Reglas eliminadas, webs desbloqueadas ✅");
+      console.log("[LockIn] Rules removed, websites unlocked.");
 
       chrome.notifications.create({
         type: "basic",
@@ -46,6 +65,9 @@ const clearBlockedRules = () => {
   });
 };
 
+/**
+ * Updates the blocking rules with the new list of URLs.
+ */
 const updateBlockedUrls = (urls) => {
   blockedUrls = urls;
 
@@ -62,10 +84,13 @@ const updateBlockedUrls = (urls) => {
       removeRuleIds: oldIds,
       addRules: rules,
     });
-    console.log(`[LockIn] ${urls.length} blocked webs  🔒`);
+    console.log(`[LockIn] ${urls.length} websites blocked.`);
   });
 };
 
+/**
+ * Listens for messages sent from the popup.
+ */
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "updateBlockedUrls") {
     const urlsToBlock = message.urls.map((url) => `||${url}^`);
@@ -84,9 +109,35 @@ chrome.runtime.onMessage.addListener((message) => {
   return true;
 });
 
+/**
+ * Triggered when the unlock alarm fires — removes the rules.
+ */
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "unlockAlarm") {
     clearBlockedRules();
-    chrome.storage.local.remove("unlockTime");
+    chrome.storage.local.remove(["unlockTime", "unlockTimestamp"]);
   }
+});
+
+/**
+ * When the browser starts, reprogram the alarm or unlock immediately
+ * depending on whether the unlock time has already passed.
+ */
+chrome.runtime.onStartup.addListener(() => {
+  chrome.storage.local.get(["unlockTimestamp"], ({ unlockTimestamp }) => {
+    if (unlockTimestamp && Date.now() >= unlockTimestamp) {
+      // Unlock immediately if the unlock time has already passed
+      clearBlockedRules();
+      chrome.storage.local.remove(["unlockTime", "unlockTimestamp"]);
+    } else if (unlockTimestamp) {
+      // Recreate the unlock alarm if the time hasn't passed yet
+      const timeToWait = unlockTimestamp - Date.now();
+      chrome.alarms.create("unlockAlarm", { when: Date.now() + timeToWait });
+      console.log(
+        `[LockIn] Unlock rescheduled (${Math.round(
+          timeToWait / 60000
+        )} min remaining)`
+      );
+    }
+  });
 });
