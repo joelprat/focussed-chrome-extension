@@ -75,7 +75,10 @@ const updateBlockedUrls = (urls) => {
     id: index + 1,
     priority: 1,
     action: { type: "block" },
-    condition: { urlFilter: url, resourceTypes: ["main_frame"] },
+    condition: {
+      urlFilter: url,
+      resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest"],
+    },
   }));
 
   chrome.declarativeNetRequest.getDynamicRules((oldRules) => {
@@ -93,7 +96,14 @@ const updateBlockedUrls = (urls) => {
  */
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "updateBlockedUrls") {
-    const urlsToBlock = message.urls.map((url) => `||${url}^`);
+    const urlsToBlock = message.urls.map((url) => {
+      let clean = url
+        .replace(/^https?:\/\//, "")
+        .replace(/^www\./, "")
+        .replace(/\/.*$/, "");
+
+      return `*://*.${clean}/*`;
+    });
     updateBlockedUrls(urlsToBlock);
     chrome.storage.local.set({
       unlockTime: message.unlockTime,
